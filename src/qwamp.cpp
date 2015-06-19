@@ -17,10 +17,23 @@
 
 #include "qwamp_p.h"
 
+
+const int kHandshakeMagic = 0x7F;
+
+const int kJsonSerializer = 0x01;
+const int kMsgPackSerializer = 0x02;
+
+
 namespace qwamp {
 
 SessionPrivate::SessionPrivate(QIODevice* io)
 	: mIo(io) {
+}
+
+SessionPrivate::start() {
+	connect(mIo, &QIODevice::bytesWritten, this
+	quint8 buffer[] = {kHandshakeMagic, 0xF0 + kJsonSerializer, 0x00, 0x00};
+	mIo.write(buffer, sizeof(buffer));
 }
 
 Session::Session(QIODevice* io, QObject* parent)
@@ -30,6 +43,18 @@ Session::Session(QIODevice* io, QObject* parent)
 }
 
 Session::~Session() {
+}
+
+void Session::start() {
+	Q_D(Session);
+
+	connect(d->mIo, &QIODevice::bytesWritten, this
+
+	quint8 buffer[] = {kHandshakeMagic, 0xF0 + kJsonSerializer, 0x00, 0x00};
+	d->mIo.write(buffer, sizeof(buffer));
+}
+
+void Session::stop() {
 }
 
 }

@@ -33,6 +33,13 @@ class Session: QObject {
 public:
 	Session(QIODevice* io, QObject* parent = 0);
 	virtual ~Session();
+
+	void start();
+	void stop();
+
+signals:
+	void started();
+	void stopped();
 };
 
 }
