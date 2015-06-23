@@ -20,16 +20,41 @@
 
 #include <qwamp.h>
 
+#include <QJsonArray>
+
+
 namespace qwamp {
 
-class SessionPrivate {
+class SessionPrivate: public QObject {
+	Q_OBJECT
 	Q_DECLARE_PUBLIC(Session)
 
 	Session* q_ptr;
 	QIODevice* mIo;
+	int mState;
+	int mFrameType;
+	int mFrameLength;
+	quint64 mSessionId;
 
-public:
 	SessionPrivate(QIODevice* io);
+	void start();
+	void join(const QString& realm);
+	void leave(const QString& reason);
+
+	void sendMessage(const QJsonArray& data);
+	void sendFrame(int frameType, const QByteArray& data);
+
+	void onMessage(const QJsonArray& data);
+	void onHelloReply(const QJsonArray& data);
+	void onLeaveReply(const QJsonArray& data);
+
+	void onMessageReceived(const QByteArray& data);
+	void onPingReceived(const QByteArray& data);
+	void onPongReceived(const QByteArray& data);
+
+private slots:
+	void onHandshakeReply();
+	void onDataReceived();
 };
 
 }

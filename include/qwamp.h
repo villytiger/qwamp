@@ -37,6 +37,9 @@ public:
 	void start();
 	void stop();
 
+	void join(const QString& realm);
+	void leave(const QString& reason);
+
 signals:
 	void started();
 	void stopped();

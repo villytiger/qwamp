@@ -9,6 +9,9 @@ Product {
     Depends { name: "cpp" }
     Depends { name: "Qt.core" }
 
+    cpp.warningLevel: "all"
+    cpp.treatWarningsAsErrors: true
+
     cpp.includePaths: [publicIncludePath]
 
     Export {
