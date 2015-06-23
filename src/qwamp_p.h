@@ -32,21 +32,30 @@ class SessionPrivate: public QObject {
 	Session* q_ptr;
 	QIODevice* mIo;
 	int mState;
+	int mMaxOutFrameSize;
 	int mFrameType;
 	int mFrameLength;
-	quint64 mSessionId;
+	qint64 mSessionId;
+	qint64 mRequestId;
 
 	SessionPrivate(QIODevice* io);
 	void start();
 	void join(const QString& realm);
-	void leave(const QString& reason);
+	void leave(const QString& reason, const QVariantMap& details);
+
+	quint64 call(const QString& procedure, const QVariantList& arguments,
+		     const QVariantMap& argumentsKw);
 
 	void sendMessage(const QJsonArray& data);
 	void sendFrame(int frameType, const QByteArray& data);
 
+	void processGoodbye(const QJsonArray& data);
+	void processResult(const QJsonArray& data);
+	void processError(const QJsonArray& data);
+
 	void onMessage(const QJsonArray& data);
 	void onHelloReply(const QJsonArray& data);
-	void onLeaveReply(const QJsonArray& data);
+	void onGoodbyeReply(const QJsonArray& data);
 
 	void onMessageReceived(const QByteArray& data);
 	void onPingReceived(const QByteArray& data);

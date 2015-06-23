@@ -19,11 +19,12 @@
 #define QWAMP_H
 
 #include <QIODevice>
+#include <QVariantMap>
 
 namespace qwamp {
 
 class SessionPrivate;
-class Session: QObject {
+class Session: public QObject {
 	Q_OBJECT
 	Q_DISABLE_COPY(Session)
 	Q_DECLARE_PRIVATE(Session)
@@ -38,11 +39,21 @@ public:
 	void stop();
 
 	void join(const QString& realm);
-	void leave(const QString& reason);
+	void leave(const QString& reason = "wamp.error.close_realm",
+		   const QVariantMap& details = QVariantMap());
+
+	quint64 call(const QString& procedure, const QVariantList& arguments,
+		     const QVariantMap& argumentsKw);
 
 signals:
 	void started();
 	void stopped();
+	void joined();
+	void left(const QString& reason, const QVariantMap& details);
+	void aborted(const QString& reason, const QVariantMap& details);
+	void result(qint64 callId, const QVariantList& arguments, const QVariantMap& argumentsKw);
+	void callError(qint64 callId, const QString& error, const QVariantList& arguments,
+		       const QVariantMap& argumentsKw);
 };
 
 }

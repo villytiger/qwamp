@@ -23,15 +23,19 @@
 
 
 const int kHandshakeMagic = 0x7F;
+const int kMaxInFrameSizeExponent = 0x0F;
+const int kMaxInFrameSize = (2 << (9 + kMaxInFrameSizeExponent));
 
 const int kJsonSerializer = 0x01;
 const int kMsgPackSerializer = 0x02;
 
 enum SessionState {
 	kNewSessionState,
+	kStartedSessionState,
 	kHelloSentSessionState,
 	kEstablishedSessionState,
-	kLeaveSentSessionState
+	kGoodbyeSentSessionState,
+	kStoppedSessionState
 };
 
 enum FrameType {
@@ -44,7 +48,11 @@ enum FrameType {
 enum MessageCode {
 	kHelloMessageCode = 1,
 	kWelcomeMessageCode = 2,
-	kGoodbyeMessageCode = 6
+	kAbortMessageCode = 3,
+	kGoodbyeMessageCode = 6,
+	kErrorMessageCode = 8,
+	kCallMessageCode = 48,
+	kResultMessageCode = 50
 };
 
 
@@ -53,38 +61,62 @@ namespace qwamp {
 SessionPrivate::SessionPrivate(QIODevice* io)
 	: mIo(io)
 	, mState(kNewSessionState)
-	, mFrameLength(0) {
+	, mFrameLength(0)
+	, mRequestId(0) {
 	if (mIo->openMode() & QIODevice::Unbuffered) throw "todo";
 }
 
 void SessionPrivate::start() {
-	const quint8 buffer[] = {kHandshakeMagic, 0xF0 + kJsonSerializer, 0x00, 0x00};
+	const quint8 buffer[] = {
+		kHandshakeMagic, (kMaxInFrameSizeExponent << 4) + kJsonSerializer, 0x00, 0x00
+	};
 	const qint64 r = mIo->write(reinterpret_cast<const char*>(buffer), sizeof(buffer));
 	if (r == -1) throw "todo";
 
 	connect(mIo, &QIODevice::readyRead, this, &SessionPrivate::onHandshakeReply);
 }
 
-// TODO: support details
 void SessionPrivate::join(const QString& realm) {
+	QJsonObject roles;
+	roles.insert("caller", QJsonObject());
+	roles.insert("callee", QJsonObject());
+	roles.insert("publisher", QJsonObject());
+	roles.insert("subscriber", QJsonObject());
+	QJsonObject details;
+	details.insert("roles", roles);
+
 	QJsonArray data;
 	data.append(kHelloMessageCode);
 	data.append(realm);
-	data.append(QJsonObject());
+	data.append(details);
 
 	sendMessage(data);
 	mState = kHelloSentSessionState;
 }
 
-// TODO: support details
-void SessionPrivate::leave(const QString& reason) {
-	QJsonArray data;
-	data.append(kHelloMessageCode);
-	data.append(QJsonObject());
+void SessionPrivate::leave(const QString& reason, const QVariantMap& details) {
+ 	QJsonArray data;
+	data.append(kGoodbyeMessageCode);
+	data.append(QJsonObject::fromVariantMap(details));
 	data.append(reason);
 
 	sendMessage(data);
-	mState = kLeaveSentSessionState;
+	mState = kGoodbyeSentSessionState;
+}
+
+quint64 SessionPrivate::call(const QString& procedure, const QVariantList& arguments,
+			     const QVariantMap& argumentsKw) {
+	mRequestId += 1;
+
+	QJsonArray data;
+	data.append(kCallMessageCode);
+	data.append(mRequestId);
+	data.append(QJsonObject());
+	data.append(procedure);
+	data.append(QJsonArray::fromVariantList(arguments));
+	data.append(QJsonObject::fromVariantMap(argumentsKw));
+
+	return mRequestId;
 }
 
 void SessionPrivate::sendMessage(const QJsonArray& data) {
@@ -93,6 +125,8 @@ void SessionPrivate::sendMessage(const QJsonArray& data) {
 
 void SessionPrivate::sendFrame(int frameType, const QByteArray& data) {
 	Q_ASSERT(frameType < 8);
+
+	if (data.size() > mMaxOutFrameSize) throw "todo";
 
 	const int size = data.size();
 	const quint8 buffer[] = {
@@ -106,25 +140,101 @@ void SessionPrivate::sendFrame(int frameType, const QByteArray& data) {
 	if (r == -1) throw "todo";
 }
 
+void SessionPrivate::processGoodbye(const QJsonArray& data) {
+	if (data.size() != 3) throw "todo";
+	QVariantMap details = data[1].toObject().toVariantMap();
+	QString reason = data[2].toString();
+
+	QJsonArray reply;
+	reply.append(kGoodbyeMessageCode);
+	reply.append(QJsonObject());
+	reply.append("wamp.error.goodbye_and_out");
+	sendMessage(reply);
+
+	mState = kStartedSessionState;
+
+	Q_Q(Session);
+	emit q->left(reason, details);
+}
+
+void SessionPrivate::processResult(const QJsonArray& data) {
+	if (data.size() < 3) throw "todo";
+
+	qint64 requestId = data[1].toVariant().toLongLong();
+
+	QVariantList arguments = (data.size() < 4) ? QVariantList()
+		: data[3].toArray().toVariantList();
+
+	QVariantMap argumentsKw = (data.size() < 5) ? QVariantMap()
+		: data[4].toObject().toVariantMap();
+
+	Q_Q(Session);
+	emit q->result(requestId, arguments, argumentsKw);
+}
+
+void SessionPrivate::processError(const QJsonArray& data) {
+	if (data.size() < 5) throw "todo";
+
+	int requestType = data[1].toInt();
+	qint64 requestId = data[2].toVariant().toLongLong();
+	QString error = data[4].toString();
+
+	QVariantList arguments = (data.size() < 6) ? QVariantList()
+		: data[5].toArray().toVariantList();
+
+	QVariantMap argumentsKw = (data.size() < 7) ? QVariantMap()
+		: data[6].toObject().toVariantMap();
+
+	Q_Q(Session);
+	switch (requestType) {
+	case kCallMessageCode: emit q->callError(requestId, error, arguments, argumentsKw); break;
+	default: throw "todo";
+	}
+}
+
 void SessionPrivate::onMessage(const QJsonArray& data) {
 	switch (data[0].toInt()) {
+	case kResultMessageCode: return processResult(data);
+	case kErrorMessageCode: return processError(data);
+	case kGoodbyeMessageCode: return processGoodbye(data);
 	default: throw "todo";
 	}
 }
 
 void SessionPrivate::onHelloReply(const QJsonArray& data) {
+	if (data[0].toInt() == kAbortMessageCode) {
+		if (data.size() != 3) throw "todo";
+
+		QVariantMap details = data[1].toObject().toVariantMap();
+		QString reason = data[2].toString();
+
+		mState = kStartedSessionState;
+
+		Q_Q(Session);
+		emit q->aborted(reason, details);
+	}
+
 	if (data[0].toInt() != kWelcomeMessageCode) throw "todo";
 	if (data.size() != 3) throw "todo";
 
-	mSessionId = data[1].toVariant().toULongLong();
+	mSessionId = data[1].toVariant().toLongLong();
 	mState = kEstablishedSessionState;
+
+	Q_Q(Session);
+	emit q->joined();
 }
 
-void SessionPrivate::onLeaveReply(const QJsonArray& data) {
+void SessionPrivate::onGoodbyeReply(const QJsonArray& data) {
 	if (data[0].toInt() != kGoodbyeMessageCode) throw "todo";
 	if (data.size() != 3) throw "todo";
 
-	mState = kNewSessionState;
+	QVariantMap details = data[1].toObject().toVariantMap();
+	QString reason = data[2].toString();
+
+	mState = kStartedSessionState;
+
+	Q_Q(Session);
+	emit q->left(reason, details);
 }
 
 void SessionPrivate::onMessageReceived(const QByteArray& data) {
@@ -137,7 +247,7 @@ void SessionPrivate::onMessageReceived(const QByteArray& data) {
 	switch (mState) {
 	case kEstablishedSessionState: return onMessage(arr);
 	case kHelloSentSessionState: return onHelloReply(arr);
-	case kLeaveSentSessionState: return onLeaveReply(arr);
+	case kGoodbyeSentSessionState: return onGoodbyeReply(arr);
 	default: throw "todo";
 	}
 }
@@ -159,10 +269,13 @@ void SessionPrivate::onHandshakeReply() {
 	if (r != sizeof(buffer)) throw "todo";
 	if (buffer[0] != kHandshakeMagic) throw "todo";
 	if ((buffer[1] & 0x0F) != kJsonSerializer) throw "todo";
-	// TODO: max packet size
+
+	mMaxOutFrameSize = (2 << ((buffer[1] >> 4) + 9));
 
 	disconnect(mIo, &QIODevice::readyRead, this, &SessionPrivate::onHandshakeReply);
 	connect(mIo, &QIODevice::readyRead, this, &SessionPrivate::onDataReceived);
+
+	mState = kStartedSessionState;
 
 	Q_Q(Session);
 	emit q->started();
@@ -182,6 +295,8 @@ void SessionPrivate::onDataReceived() {
 
 		mFrameLength = (buffer[1] << 16) + (buffer[2] << 8) + buffer[3];
 	}
+
+	if (mFrameLength > kMaxInFrameSize) throw "todo";
 
 	if (mIo->bytesAvailable() < mFrameLength) return;
 
@@ -212,6 +327,9 @@ void Session::start() {
 }
 
 void Session::stop() {
+	Q_D(Session);
+	d->mState = kStoppedSessionState;
+	emit stopped();
 }
 
 void Session::join(const QString& realm) {
@@ -219,9 +337,15 @@ void Session::join(const QString& realm) {
 	d->join(realm);
 }
 
-void Session::leave(const QString& reason) {
+void Session::leave(const QString& reason, const QVariantMap& details) {
 	Q_D(Session);
-	d->leave(reason);
+	d->leave(reason, details);
+}
+
+quint64 Session::call(const QString& procedure, const QVariantList& arguments,
+		      const QVariantMap& argumentsKw) {
+	Q_D(Session);
+	return d->call(procedure, arguments, argumentsKw);
 }
 
 }
