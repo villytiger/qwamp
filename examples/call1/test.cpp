@@ -15,16 +15,26 @@
 //  You should have received a copy of the GNU Lesser General Public License
 //  along with qwamp.  If not, see <http://www.gnu.org/licenses/>.
 
-#include <QCoreApplication>
-
 #include "test.h"
 
 
-int main(int argc, char* argv[]) {
-	QCoreApplication app(argc, argv);
+Test::Test()
+	: mSocket(new QTcpSocket(this))
+	, mSession(new Session(mSocket, this)) {
+	connect(mSocket, &QTcpSocket::connected, this, &Test::socketConnected);
 
-	Test test;
-	QObject::connect(&test, &Test::finished, &app, &QCoreApplication::quit);
+	mSocket->connectToHost("127.0.0.1", 8090);
+}
 
-	return app.exec();
+void Test::socketConnected() {
+	disconnect(mSocket, &QTcpSocket::connected, this, &Test::socketConnected);
+	connect(mSession, &Session::started, this, &Test::sessionStarted);
+
+	mSession->start();
+}
+
+void Test::sessionStarted() {
+	disconnect(mSession, &Session::started, this, &Test::sessionStarted);
+
+	emit finished();
 }

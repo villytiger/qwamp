@@ -15,16 +15,28 @@
 //  You should have received a copy of the GNU Lesser General Public License
 //  along with qwamp.  If not, see <http://www.gnu.org/licenses/>.
 
-#include <QCoreApplication>
+#include <QTcpSocket>
 
-#include "test.h"
+#include <qwamp.h>
 
 
-int main(int argc, char* argv[]) {
-	QCoreApplication app(argc, argv);
+using qwamp::Session;
 
-	Test test;
-	QObject::connect(&test, &Test::finished, &app, &QCoreApplication::quit);
 
-	return app.exec();
-}
+class Test: public QObject {
+	Q_OBJECT
+
+	QTcpSocket* mSocket;
+	Session* mSession;
+
+public:
+	Test();
+	virtual ~Test() {}
+
+private slots:
+	void socketConnected();
+	void sessionStarted();
+
+signals:
+	void finished();
+};
