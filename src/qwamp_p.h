@@ -42,7 +42,7 @@ class SessionPrivate: public QObject {
 	int mFrameLength;
 	qint64 mSessionId;
 	qint64 mRequestId;
-	QMap<qint64, QDeferred<std::tuple<QVariantList, QVariantMap>,
+	std::map<qint64, QDeferred<std::tuple<QVariantList, QVariantMap>,
 		std::tuple<QString, QVariantList, QVariantMap>>> mCallIdMap;
 
 	SessionPrivate(QIODevice* io);

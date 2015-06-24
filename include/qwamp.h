@@ -32,7 +32,7 @@ class QPromiseInterface;
 template<typename... T>
 class QPromise;
 
-template<typename T>
+/*template<typename T>
 class QPromise<T> {
 	Q_DISABLE_COPY(QPromise)
 
@@ -40,30 +40,31 @@ class QPromise<T> {
 
 public:
 	explicit QPromise(QSharedPointer<QPromiseInterface<T>> p);
-	QPromise(QPromise&&);
+	QPromise(QPromise&&) {}
 
 	template<typename R>
-	QPromise<R> then(const std::function<R (T)>& success);
-};
+	QPromise<R> then(const std::function<R (T)>& success) {}
+	};*/
 
-template<typename... S, typename... E>
-class QPromise<std::tuple<S...>, std::tuple<E...>> {
+template<typename... S, typename... E, typename... U>
+class QPromise<std::tuple<S...>, std::tuple<E...>, std::tuple<U...>> {
 	Q_DISABLE_COPY(QPromise)
 
-	QSharedPointer<QPromiseInterface<std::tuple<S...>, std::tuple<E...>>> d;
+	QSharedPointer<QPromiseInterface<std::tuple<S...>, std::tuple<E...>, std::tuple<U...>>> d;
 
 public:
-	explicit QPromise(QSharedPointer<QPromiseInterface<std::tuple<S...>, std::tuple<E...>>> p);
-	QPromise(QPromise&&);
+	explicit QPromise(QSharedPointer<QPromiseInterface<std::tuple<S...>, std::tuple<E...>, std::tuple<U...>>> p) {}
+	QPromise(QPromise&&) {}
 
-	template<typename R>
+/*	template<typename R>
 	QPromise<R> then(const std::function<R (S...)>& success,
-			 const std::function<R (E...)>& error = std::function<R (E...)>());
+			 const std::function<R (E...)>& error = std::function<R (E...)>(),
+		         const std::function<R (U...)>& update = std::function<R (U...)>()) {}*/
 };
 
 template<typename... T>
 class QDeferred {
-	Q_DISABLE_COPY(QDeferred)
+//	Q_DISABLE_COPY(QDeferred)
 
 	QSharedPointer<QPromiseInterface<T...> > d;
 

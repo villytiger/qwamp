@@ -105,7 +105,7 @@ void SessionPrivate::leave(const QString& reason, const QVariantMap& details) {
 }
 
 QPromise<std::tuple<QVariantList, QVariantMap>, std::tuple<QString, QVariantList, QVariantMap>>
-	SessionPrivate::call(const QString& procedure, const QVariantList& arguments, const QVariantMap& argumentsKw) {
+SessionPrivate::call(const QString& procedure, const QVariantList& arguments, const QVariantMap& argumentsKw) {
 	mRequestId += 1;
 
 	QJsonArray data;
@@ -116,9 +116,9 @@ QPromise<std::tuple<QVariantList, QVariantMap>, std::tuple<QString, QVariantList
 	data.append(QJsonArray::fromVariantList(arguments));
 	data.append(QJsonObject::fromVariantMap(argumentsKw));
 
-	auto it = mCallIdMap.insert(mRequestId, QDeferred<std::tuple<QVariantList, QVariantMap>,
-				    std::tuple<QString, QVariantList, QVariantMap>>());
-	return std::move(it->promise());
+	auto it = mCallIdMap.emplace(mRequestId, QDeferred<std::tuple<QVariantList, QVariantMap>,
+				     std::tuple<QString, QVariantList, QVariantMap>>());
+	//return std::move(it->promise());
 }
 
 void SessionPrivate::sendMessage(const QJsonArray& data) {
