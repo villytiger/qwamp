@@ -21,9 +21,14 @@
 #include <qwamp.h>
 
 #include <QJsonArray>
+#include <QSharedPointer>
 
 
 namespace qwamp {
+
+template<typename... T>
+class QPromiseInterface {
+};
 
 class SessionPrivate: public QObject {
 	Q_OBJECT
@@ -37,14 +42,17 @@ class SessionPrivate: public QObject {
 	int mFrameLength;
 	qint64 mSessionId;
 	qint64 mRequestId;
+	QMap<qint64, QDeferred<std::tuple<QVariantList, QVariantMap>,
+		std::tuple<QString, QVariantList, QVariantMap>>> mCallIdMap;
 
 	SessionPrivate(QIODevice* io);
 	void start();
+
 	void join(const QString& realm);
 	void leave(const QString& reason, const QVariantMap& details);
 
-	quint64 call(const QString& procedure, const QVariantList& arguments,
-		     const QVariantMap& argumentsKw);
+	QPromise<std::tuple<QVariantList, QVariantMap>, std::tuple<QString, QVariantList, QVariantMap>>
+		call(const QString& procedure, const QVariantList& arguments, const QVariantMap& argumentsKw);
 
 	void sendMessage(const QJsonArray& data);
 	void sendFrame(int frameType, const QByteArray& data);

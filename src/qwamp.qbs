@@ -9,6 +9,7 @@ Product {
     Depends { name: "cpp" }
     Depends { name: "Qt.core" }
 
+    cpp.cxxLanguageVersion: "c++11"
     cpp.warningLevel: "all"
     cpp.treatWarningsAsErrors: true
 

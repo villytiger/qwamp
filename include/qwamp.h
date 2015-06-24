@@ -18,10 +18,62 @@
 #ifndef QWMAP_H
 #define QWAMP_H
 
+#include <functional>
+
 #include <QIODevice>
 #include <QVariantMap>
 
+
 namespace qwamp {
+
+template<typename... T>
+class QPromiseInterface;
+
+template<typename... T>
+class QPromise;
+
+template<typename T>
+class QPromise<T> {
+	Q_DISABLE_COPY(QPromise)
+
+	QSharedPointer<QPromiseInterface<T>> d;
+
+public:
+	explicit QPromise(QSharedPointer<QPromiseInterface<T>> p);
+	QPromise(QPromise&&);
+
+	template<typename R>
+	QPromise<R> then(const std::function<R (T)>& success);
+};
+
+template<typename... S, typename... E>
+class QPromise<std::tuple<S...>, std::tuple<E...>> {
+	Q_DISABLE_COPY(QPromise)
+
+	QSharedPointer<QPromiseInterface<std::tuple<S...>, std::tuple<E...>>> d;
+
+public:
+	explicit QPromise(QSharedPointer<QPromiseInterface<std::tuple<S...>, std::tuple<E...>>> p);
+	QPromise(QPromise&&);
+
+	template<typename R>
+	QPromise<R> then(const std::function<R (S...)>& success,
+			 const std::function<R (E...)>& error = std::function<R (E...)>());
+};
+
+template<typename... T>
+class QDeferred {
+	Q_DISABLE_COPY(QDeferred)
+
+	QSharedPointer<QPromiseInterface<T...> > d;
+
+public:
+	QDeferred();
+
+	QPromise<T...> promise();
+
+	void setValue(T...);
+};
 
 class SessionPrivate;
 class Session: public QObject {
@@ -32,7 +84,7 @@ class Session: public QObject {
 	QScopedPointer<SessionPrivate> d_ptr;
 
 public:
-	Session(QIODevice* io, QObject* parent = 0);
+	explicit Session(QIODevice* io, QObject* parent = 0);
 	virtual ~Session();
 
 	void start();
@@ -42,8 +94,8 @@ public:
 	void leave(const QString& reason = "wamp.error.close_realm",
 		   const QVariantMap& details = QVariantMap());
 
-	quint64 call(const QString& procedure, const QVariantList& arguments,
-		     const QVariantMap& argumentsKw);
+	QPromise<std::tuple<QVariantList, QVariantMap>, std::tuple<QString, QVariantList, QVariantMap>>
+		call(const QString& procedure, const QVariantList& arguments, const QVariantMap& argumentsKw);
 
 signals:
 	void started();
@@ -51,9 +103,6 @@ signals:
 	void joined();
 	void left(const QString& reason, const QVariantMap& details);
 	void aborted(const QString& reason, const QVariantMap& details);
-	void result(qint64 callId, const QVariantList& arguments, const QVariantMap& argumentsKw);
-	void callError(qint64 callId, const QString& error, const QVariantList& arguments,
-		       const QVariantMap& argumentsKw);
 };
 
 }

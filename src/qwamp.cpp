@@ -104,8 +104,8 @@ void SessionPrivate::leave(const QString& reason, const QVariantMap& details) {
 	mState = kGoodbyeSentSessionState;
 }
 
-quint64 SessionPrivate::call(const QString& procedure, const QVariantList& arguments,
-			     const QVariantMap& argumentsKw) {
+QPromise<std::tuple<QVariantList, QVariantMap>, std::tuple<QString, QVariantList, QVariantMap>>
+	SessionPrivate::call(const QString& procedure, const QVariantList& arguments, const QVariantMap& argumentsKw) {
 	mRequestId += 1;
 
 	QJsonArray data;
@@ -116,7 +116,9 @@ quint64 SessionPrivate::call(const QString& procedure, const QVariantList& argum
 	data.append(QJsonArray::fromVariantList(arguments));
 	data.append(QJsonObject::fromVariantMap(argumentsKw));
 
-	return mRequestId;
+	auto it = mCallIdMap.insert(mRequestId, QDeferred<std::tuple<QVariantList, QVariantMap>,
+				    std::tuple<QString, QVariantList, QVariantMap>>());
+	return std::move(it->promise());
 }
 
 void SessionPrivate::sendMessage(const QJsonArray& data) {
@@ -160,7 +162,7 @@ void SessionPrivate::processGoodbye(const QJsonArray& data) {
 void SessionPrivate::processResult(const QJsonArray& data) {
 	if (data.size() < 3) throw "todo";
 
-	qint64 requestId = data[1].toVariant().toLongLong();
+/*	qint64 requestId = data[1].toVariant().toLongLong();
 
 	QVariantList arguments = (data.size() < 4) ? QVariantList()
 		: data[3].toArray().toVariantList();
@@ -169,13 +171,13 @@ void SessionPrivate::processResult(const QJsonArray& data) {
 		: data[4].toObject().toVariantMap();
 
 	Q_Q(Session);
-	emit q->result(requestId, arguments, argumentsKw);
+	emit q->result(requestId, arguments, argumentsKw);*/
 }
 
 void SessionPrivate::processError(const QJsonArray& data) {
 	if (data.size() < 5) throw "todo";
 
-	int requestType = data[1].toInt();
+/*	int requestType = data[1].toInt();
 	qint64 requestId = data[2].toVariant().toLongLong();
 	QString error = data[4].toString();
 
@@ -189,7 +191,7 @@ void SessionPrivate::processError(const QJsonArray& data) {
 	switch (requestType) {
 	case kCallMessageCode: emit q->callError(requestId, error, arguments, argumentsKw); break;
 	default: throw "todo";
-	}
+	}*/
 }
 
 void SessionPrivate::onMessage(const QJsonArray& data) {
@@ -342,10 +344,10 @@ void Session::leave(const QString& reason, const QVariantMap& details) {
 	d->leave(reason, details);
 }
 
-quint64 Session::call(const QString& procedure, const QVariantList& arguments,
+/*quint64 Session::call(const QString& procedure, const QVariantList& arguments,
 		      const QVariantMap& argumentsKw) {
 	Q_D(Session);
 	return d->call(procedure, arguments, argumentsKw);
-}
+	}*/
 
 }
