@@ -21,6 +21,9 @@
 #include <QJsonObject>
 #include <QVariant>
 
+using qpromise::QPromise;
+using qpromise::QDeferred;
+
 
 const int kHandshakeMagic = 0x7F;
 const int kMaxInFrameSizeExponent = 0x0F;
@@ -104,7 +107,8 @@ void SessionPrivate::leave(const QString& reason, const QVariantMap& details) {
 	mState = kGoodbyeSentSessionState;
 }
 
-QPromise<std::tuple<QVariantList, QVariantMap>, std::tuple<QString, QVariantList, QVariantMap>>
+QPromise<std::tuple<QVariantList, QVariantMap>, std::tuple<QString, QVariantList, QVariantMap>,
+	 std::tuple<QVariantList, QVariantMap>>
 SessionPrivate::call(const QString& procedure, const QVariantList& arguments, const QVariantMap& argumentsKw) {
 	mRequestId += 1;
 
@@ -116,9 +120,7 @@ SessionPrivate::call(const QString& procedure, const QVariantList& arguments, co
 	data.append(QJsonArray::fromVariantList(arguments));
 	data.append(QJsonObject::fromVariantMap(argumentsKw));
 
-	auto it = mCallIdMap.emplace(mRequestId, QDeferred<std::tuple<QVariantList, QVariantMap>,
-				     std::tuple<QString, QVariantList, QVariantMap>>());
-	//return std::move(it->promise());
+	return std::move(mCallIdMap[mRequestId].promise());
 }
 
 void SessionPrivate::sendMessage(const QJsonArray& data) {
@@ -162,7 +164,7 @@ void SessionPrivate::processGoodbye(const QJsonArray& data) {
 void SessionPrivate::processResult(const QJsonArray& data) {
 	if (data.size() < 3) throw "todo";
 
-/*	qint64 requestId = data[1].toVariant().toLongLong();
+	qint64 requestId = data[1].toVariant().toLongLong();
 
 	QVariantList arguments = (data.size() < 4) ? QVariantList()
 		: data[3].toArray().toVariantList();
@@ -170,14 +172,18 @@ void SessionPrivate::processResult(const QJsonArray& data) {
 	QVariantMap argumentsKw = (data.size() < 5) ? QVariantMap()
 		: data[4].toObject().toVariantMap();
 
-	Q_Q(Session);
-	emit q->result(requestId, arguments, argumentsKw);*/
+
+	auto it = mCallIdMap.find(requestId);
+	if (it == mCallIdMap.end()) throw "todo";
+
+	it->second.setResult(arguments, argumentsKw);
+	mCallIdMap.erase(it);
 }
 
 void SessionPrivate::processError(const QJsonArray& data) {
 	if (data.size() < 5) throw "todo";
 
-/*	int requestType = data[1].toInt();
+	int requestType = data[1].toInt();
 	qint64 requestId = data[2].toVariant().toLongLong();
 	QString error = data[4].toString();
 
@@ -187,11 +193,17 @@ void SessionPrivate::processError(const QJsonArray& data) {
 	QVariantMap argumentsKw = (data.size() < 7) ? QVariantMap()
 		: data[6].toObject().toVariantMap();
 
-	Q_Q(Session);
 	switch (requestType) {
-	case kCallMessageCode: emit q->callError(requestId, error, arguments, argumentsKw); break;
+	case kCallMessageCode: {
+		auto it = mCallIdMap.find(requestId);
+		if (it == mCallIdMap.end()) throw "todo";
+
+		it->second.setError(error, arguments, argumentsKw);
+		mCallIdMap.erase(it);
+		break;
+	}
 	default: throw "todo";
-	}*/
+	}
 }
 
 void SessionPrivate::onMessage(const QJsonArray& data) {

@@ -18,63 +18,13 @@
 #ifndef QWMAP_H
 #define QWAMP_H
 
-#include <functional>
+#include "qpromise.h"
 
 #include <QIODevice>
 #include <QVariantMap>
 
 
 namespace qwamp {
-
-template<typename... T>
-class QPromiseInterface;
-
-template<typename... T>
-class QPromise;
-
-/*template<typename T>
-class QPromise<T> {
-	Q_DISABLE_COPY(QPromise)
-
-	QSharedPointer<QPromiseInterface<T>> d;
-
-public:
-	explicit QPromise(QSharedPointer<QPromiseInterface<T>> p);
-	QPromise(QPromise&&) {}
-
-	template<typename R>
-	QPromise<R> then(const std::function<R (T)>& success) {}
-	};*/
-
-template<typename... S, typename... E, typename... U>
-class QPromise<std::tuple<S...>, std::tuple<E...>, std::tuple<U...>> {
-	Q_DISABLE_COPY(QPromise)
-
-	QSharedPointer<QPromiseInterface<std::tuple<S...>, std::tuple<E...>, std::tuple<U...>>> d;
-
-public:
-	explicit QPromise(QSharedPointer<QPromiseInterface<std::tuple<S...>, std::tuple<E...>, std::tuple<U...>>> p) {}
-	QPromise(QPromise&&) {}
-
-/*	template<typename R>
-	QPromise<R> then(const std::function<R (S...)>& success,
-			 const std::function<R (E...)>& error = std::function<R (E...)>(),
-		         const std::function<R (U...)>& update = std::function<R (U...)>()) {}*/
-};
-
-template<typename... T>
-class QDeferred {
-//	Q_DISABLE_COPY(QDeferred)
-
-	QSharedPointer<QPromiseInterface<T...> > d;
-
-public:
-	QDeferred();
-
-	QPromise<T...> promise();
-
-	void setValue(T...);
-};
 
 class SessionPrivate;
 class Session: public QObject {
@@ -95,8 +45,8 @@ public:
 	void leave(const QString& reason = "wamp.error.close_realm",
 		   const QVariantMap& details = QVariantMap());
 
-	QPromise<std::tuple<QVariantList, QVariantMap>, std::tuple<QString, QVariantList, QVariantMap>>
-		call(const QString& procedure, const QVariantList& arguments, const QVariantMap& argumentsKw);
+	qpromise::QPromise<std::tuple<QVariantList, QVariantMap>, std::tuple<QString, QVariantList, QVariantMap>>
+	call(const QString& procedure, const QVariantList& arguments, const QVariantMap& argumentsKw);
 
 signals:
 	void started();

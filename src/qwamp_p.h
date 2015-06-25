@@ -26,10 +26,6 @@
 
 namespace qwamp {
 
-template<typename... T>
-class QPromiseInterface {
-};
-
 class SessionPrivate: public QObject {
 	Q_OBJECT
 	Q_DECLARE_PUBLIC(Session)
@@ -42,8 +38,9 @@ class SessionPrivate: public QObject {
 	int mFrameLength;
 	qint64 mSessionId;
 	qint64 mRequestId;
-	std::map<qint64, QDeferred<std::tuple<QVariantList, QVariantMap>,
-		std::tuple<QString, QVariantList, QVariantMap>>> mCallIdMap;
+	std::map<qint64, qpromise::QDeferred<std::tuple<QVariantList, QVariantMap>,
+		std::tuple<QString, QVariantList, QVariantMap>,
+		std::tuple<QVariantList, QVariantMap>>> mCallIdMap;
 
 	SessionPrivate(QIODevice* io);
 	void start();
@@ -51,8 +48,10 @@ class SessionPrivate: public QObject {
 	void join(const QString& realm);
 	void leave(const QString& reason, const QVariantMap& details);
 
-	QPromise<std::tuple<QVariantList, QVariantMap>, std::tuple<QString, QVariantList, QVariantMap>>
-		call(const QString& procedure, const QVariantList& arguments, const QVariantMap& argumentsKw);
+	qpromise::QPromise<std::tuple<QVariantList, QVariantMap>,
+		std::tuple<QString, QVariantList, QVariantMap>,
+		std::tuple<QVariantList, QVariantMap>>
+	call(const QString& procedure, const QVariantList& arguments, const QVariantMap& argumentsKw);
 
 	void sendMessage(const QJsonArray& data);
 	void sendFrame(int frameType, const QByteArray& data);
